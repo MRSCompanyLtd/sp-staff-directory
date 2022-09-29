@@ -1,0 +1,40 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "sp-staff-directory-client-side-solution",
+    "id": "4510483f-9958-4791-a13f-b12170485afe",
+    "version": "1.0.0.1",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "developer": {
+      "name": "MRS Company Ltd",
+      "websiteUrl": "https://mrscompany.com",
+      "privacyUrl": "https://mrscompany.com/policies",
+      "termsOfUseUrl": "",
+      "mpnId": "1118755"
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "Organizational staff directory with department filters and search."
+      },
+      "longDescription": {
+        "default": "Organizational staff directory with department filters and search."
+      },
+      "screenshotPaths": [],
+      "videoUrl": "",
+      "categories": []
+    },
+    "features": [
+      {
+        "title": "sp-staff-directory Feature",
+        "description": "The feature that activates elements of the sp-staff-directory solution.",
+        "id": "a0c8d71e-7c14-4596-abed-bead97ee501f",
+        "version": "1.0.0.0"
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/sp-staff-directory.sppkg"
+  }
+}
