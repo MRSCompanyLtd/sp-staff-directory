@@ -1,0 +1,16 @@
+{
+  "@microsoft/generator-sharepoint": {
+    "packageManager": "yarn",
+    "plusBeta": false,
+    "isCreatingSolution": true,
+    "version": "1.15.0",
+    "libraryName": "sp-staff-directory",
+    "libraryId": "4510483f-9958-4791-a13f-b12170485afe",
+    "environment": "spo",
+    "solutionName": "sp-staff-directory",
+    "solutionShortDescription": "sp-staff-directory description",
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "componentType": "webpart"
+  }
+}
