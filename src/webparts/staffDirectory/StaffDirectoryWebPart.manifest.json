@@ -16,7 +16,10 @@
     "description": { "default": "Organizational staff directory with department filters and search." },
     "officeFabricIconFontName": "Group",
     "properties": {
-      "description": "Organizational staff directory with department filters and search."
+      "title": "Staff Directory",
+      "pageSize": 10,
+      "showDepartmentFilter": false,
+      "departments": []
     }
   }]
 }
