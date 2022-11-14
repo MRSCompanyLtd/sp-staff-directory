@@ -8,13 +8,12 @@ import styles from "./Person.module.scss";
 const LIVE_PERSONA_COMPONENT_ID: string =
     "914330ee-2df2-4f6e-a858-30c23a812408";
 
-const LivePersona: React.FunctionComponent<ILivePersonaProps> = (
-    props: React.PropsWithChildren<ILivePersonaProps>
-) => {
+const LivePersona: React.FunctionComponent<ILivePersonaProps> = ({
+    upn, template, disableHover, serviceScope, children
+}) => {
     const [isComponentLoaded, setIsComponentLoaded] = useState<boolean>(false);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sharedLibrary: any = useRef<any>();
-    const { upn, template, disableHover, serviceScope } = props;
 
     useEffect(() => {
         (async () => {
