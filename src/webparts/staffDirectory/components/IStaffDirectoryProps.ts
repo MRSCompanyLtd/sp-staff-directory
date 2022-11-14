@@ -11,4 +11,5 @@ export interface IStaffDirectoryProps {
   environmentMessage: string;
   hasTeamsContext: boolean;
   userDisplayName: string;
+  customQuery: string;
 }

@@ -12,21 +12,27 @@ import { IReadonlyTheme } from '@microsoft/sp-component-base';
 import * as strings from 'StaffDirectoryWebPartStrings';
 import StaffDirectory from './components/StaffDirectory';
 import { IStaffDirectoryProps } from './components/IStaffDirectoryProps';
-import { PropertyFieldToggleWithCallout } from '@pnp/spfx-property-controls';
+import { PropertyFieldTextWithCallout, PropertyFieldToggleWithCallout } from '@pnp/spfx-property-controls';
+import { CalloutTriggers } from '@pnp/spfx-property-controls/lib/common/propertyFieldHeader/IPropertyFieldHeader';
 
+// These are properties sent in the web part property pane
 export interface IStaffDirectoryWebPartProps {
   title: string;
   pageSize: number;
   departments: IPropertyFieldCollectionDataProps[];
   showDepartmentFilter: boolean;
+  customQuery: string;
 }
 
 export default class StaffDirectoryWebPart extends BaseClientSideWebPart<IStaffDirectoryWebPartProps> {
 
+  // Defaults
   private _isDarkTheme: boolean = false;
   private _environmentMessage: string = '';
 
   public render(): void {
+
+    // Create main React element and pass props as defined in IStaffDirectoryProps
     const element: React.ReactElement<IStaffDirectoryProps> = React.createElement(
       StaffDirectory,
       {
@@ -34,6 +40,7 @@ export default class StaffDirectoryWebPart extends BaseClientSideWebPart<IStaffD
         pageSize: this.properties.pageSize,
         departments: this.properties.departments,
         showDepartmentFilter: this.properties.showDepartmentFilter,
+        customQuery: this.properties.customQuery,
         isDarkTheme: this._isDarkTheme,
         context: this.context,
         environmentMessage: this._environmentMessage,
@@ -47,11 +54,6 @@ export default class StaffDirectoryWebPart extends BaseClientSideWebPart<IStaffD
 
   protected onInit(): Promise<void> {
     this._environmentMessage = this._getEnvironmentMessage();
-
-    this.properties.title = 'Staff Directory';
-    this.properties.pageSize = 10;
-    this.properties.showDepartmentFilter = false;
-    this.properties.departments = [];
 
     return super.onInit();
   }
@@ -91,6 +93,7 @@ export default class StaffDirectoryWebPart extends BaseClientSideWebPart<IStaffD
   }
 
   protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {
+    // Set property pane fields. Defaults are set in *.manifest.json
     return {
       pages: [
         {
@@ -98,7 +101,7 @@ export default class StaffDirectoryWebPart extends BaseClientSideWebPart<IStaffD
             {
               groupFields: [
                 PropertyPaneTextField('title', {
-                  label: strings.TitleFieldLabel
+                  label: strings.TitleFieldLabel,
                 }),
                 PropertyPaneSlider('pageSize', {
                   label: 'Results per page',
@@ -137,6 +140,28 @@ export default class StaffDirectoryWebPart extends BaseClientSideWebPart<IStaffD
                   onAriaLabel: 'Department filter on',
                   offAriaLabel: 'Department filter off',
                   checked: this.properties.showDepartmentFilter
+                }),
+                PropertyFieldTextWithCallout('customQuery', {
+                  key: 'customQuery',
+                  label: 'Append Custom Search Query',
+                  calloutContent: [
+                    React.createElement('div', {}, [
+                      React.createElement('p', {}, 'Enter a custom query and wrap it in parentheses. Supports all User properties'),
+                      React.createElement('a', {
+                        href: 'https://learn.microsoft.com/en-us/graph/filter-query-parameter',
+                        target: '_blank noreferrer'
+                      }, 'More info on the query language.'),
+                      React.createElement('br', {}),
+                      React.createElement('br', {}),
+                      React.createElement('a', {
+                        href: 'https://developer.microsoft.com/en-us/graph/graph-explorer',
+                        target: '_blank noreferrer'
+                      }, 'Test queries in the Graph Explorer.')                      
+                    ])
+                  ],
+                  calloutTrigger: CalloutTriggers.Click,
+                  calloutWidth: 400,
+                  placeholder: `(departmentName eq 'Information Technology')`
                 })
               ]
             }

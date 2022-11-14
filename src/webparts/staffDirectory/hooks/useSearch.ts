@@ -6,12 +6,12 @@ import "@pnp/graph/photos";
 import "@pnp/graph/search";
 import "@pnp/graph/batching";
 import { IPerson } from "../IPerson";
-import { IUser, IUsers } from "@pnp/graph/users";
+import { IPeople, IUser } from "@pnp/graph/users";
 
 interface IUseSearchReturn {
-    getInitialLoad: (pageSize?: number) => Promise<IPerson[]>;
-    searchPeople: (str: string, pageSize?: number) => Promise<{ items: IPerson[], total: number }>;
-    searchLetter: (ltr: string) => Promise<{ items: IPerson[], total: number }>;
+    getInitialLoad: (pageSize?: number, query?: string) => Promise<IPerson[]>;
+    searchPeople: (str: string, pageSize?: number, query?: string) => Promise<{ items: IPerson[], total: number }>;
+    searchLetter: (ltr: string, pageSize?: number, query?: string) => Promise<{ items: IPerson[], total: number }>;
     getNextPage: (pages: number) => Promise<IPerson[]>;
     results: IPerson[];
     total: number;
@@ -25,34 +25,32 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
     const [results, setResults] = React.useState<IPerson[]>([]);
     const [total, setTotal] = React.useState<number>(0);
 
-    // React.useEffect(() => {
-    //     Promise.resolve(graph.users.filter(`userType ne 'guest'`).count().then((res: number) => {
-    //         setTotal(res);
-    //     })).catch(() => setTotal(0));
-
-    //     // eslint-disable-next-line react-hooks/exhaustive-deps
-    // }, []);
-
     async function getPhoto(id: string): Promise<Blob> {
         return await graph.users.getById(id).photo.getBlob().catch(() => null);
     }
 
-    async function getInitialLoad(pageSize: number = 12): Promise<IPerson[]> {
+    async function getInitialLoad(pageSize: number = 12, query: string | undefined = ''): Promise<IPerson[]> {
         try {
-            const items: IPerson[] = [];
+            const selectFields: string[] = [
+                'id', 'displayName', 'givenName', 'surname', 'jobTitle', 'department',
+                'scoredEmailAddresses', 'userPrincipalName', 'phones'
+            ]
 
-            const res = await graph.me.people
+            let filterQuery: string = `(personType/class eq 'Person')`
+
+            if (query !== undefined && query !== '') {
+                filterQuery = filterQuery + 'and' + query
+            }
+
+            const res: IPeople[] = await graph.me.people
+                .filter(filterQuery)
                 .top(pageSize)
-                .filter("personType.class eq 'Person'")
-                .select(
-                    "id", "displayName", "givenName", "surname", "jobTitle", "department",
-                    "scoredEmailAddresses", "userPrincipalName", "phones"
-                )
+                .select(selectFields.join(','))
                 ();
 
-            for (let i: number = 0; i < res.length; i++) {
+            const items: IPerson[] = await res.reduce(async (prev: Promise<IPerson[]>, curr: IPeople) => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const item: any = res[i];
+                const item: any = curr;
                 const photo: Blob = await getPhoto(item.id);
                 let photoUrl: string | null;
 
@@ -62,7 +60,7 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
                     photoUrl = url.createObjectURL(photo);
                 }
 
-                items.push({
+                (await prev).push({
                     id: item.id,
                     firstName: item.givenName,
                     lastName: item.surname,
@@ -75,10 +73,12 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
                     upn: item.userPrincipalName,
                     picture: photoUrl
                 });
-            }
+
+                return await prev;
+            }, Promise.resolve([]));
 
             setResults(items);
-            setTotal(12);
+            setTotal(items.length);
 
             return items;
         }
@@ -145,11 +145,17 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
         }
     }
 
-    async function searchPeople(str: string, pageSize: number = 12): Promise<{ items: IPerson[], total: number }> {
+    async function searchPeople(str: string, pageSize: number = 12, query: string | undefined = ''): Promise<{ items: IPerson[], total: number }> {
         try {
+            let filterQuery: string = `(userType eq 'Member')`;
+            if (query !== '' && query !== undefined) {
+                filterQuery = filterQuery + 'and' + query
+            }
+
             if (str === '') {
-                const total: number = await graph.users.filter(`userType ne 'guest'`).count();
+                const total: number = await graph.users.filter(filterQuery).count();
                 const search: IPagedResult = await graph.users
+                    .filter(filterQuery)
                     .top(pageSize)
                     .select(
                         'id', 'department', 'displayName', 'givenName', 'surname', 'jobTitle',
@@ -159,22 +165,21 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
                     ();
 
                 const all: IUser[] = [];
-                const items: IPerson[] = [];
 
                 all.push(...search.value);
 
-                for (let i: number = 0; i < all.length; i++) {
+                const items: IPerson[] = await all.reduce(async (prev: Promise<IPerson[]>, curr: IUser) => {
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const item: any = all[i];
+                    const item: any = curr;
                     const photo: Blob = await getPhoto(item.id);
                     let photoUrl: string | null;
+
                     if (photo?.size) {
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const url: any = window.URL || window.webkitURL;
+                        const url: URL | typeof webkitURL = window.URL || window.webkitURL;
                         photoUrl = url.createObjectURL(photo);
                     }
 
-                    items.push({
+                    (await prev).push({
                         id: item.id,
                         firstName: item.givenName,
                         lastName: item.surname,
@@ -187,7 +192,9 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
                         upn: item.userPrincipalName,
                         picture: photoUrl
                     });
-                }
+
+                    return await prev;
+                }, Promise.resolve([]));
 
                 const ret: IPerson[] = items.sort((a: IPerson, b: IPerson) => a.lastName.localeCompare(b.lastName));
 
@@ -197,9 +204,10 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
 
                 return { total, items };
             } else {
-                const total: number = await graph.users.search(`("displayName:${str}" OR "department:${str}" OR "jobTitle:${str}")`).count();
-                const search: IUsers = await graph
+                const total: number = await graph.users.filter(filterQuery).search(`("displayName:${str}" OR "department:${str}" OR "jobTitle:${str}")`).count();
+                const search: IUser[] = await graph
                     .users
+                    .filter(filterQuery)
                     .search(`("displayName:${str}" OR "department:${str}" OR "jobTitle:${str}")`)
                     .select(
                         'id', 'department', 'displayName', 'givenName', 'surname', 'jobTitle',
@@ -207,33 +215,33 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
                     )
                     ();
 
-                const items: IPerson[] = [];
-
-                for (let i: number = 0; i < search.length; i++) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const item: any = search[i];
-                    const photo: Blob = await getPhoto(item.id);
-                    let photoUrl: string | null;
-                    if (photo?.size) {
+                    const items: IPerson[] = await search.reduce(async (prev: Promise<IPerson[]>, curr: IUser) => {
                         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        const url: any = window.URL || window.webkitURL;
-                        photoUrl = url.createObjectURL(photo);
-                    }
-
-                    items.push({
-                        id: item.id,
-                        firstName: item.givenName,
-                        lastName: item.surname,
-                        displayName: item.displayName,
-                        jobTitle: item.jobTitle,
-                        email: item.mail,
-                        businessPhone: item.businessPhones,
-                        department: item.department,
-                        mobilePhone: item.mobilePhone,
-                        upn: item.userPrincipalName,
-                        picture: photoUrl
-                    })
-                }
+                        const item: any = curr;
+                        const photo: Blob = await getPhoto(item.id);
+                        let photoUrl: string | null;
+    
+                        if (photo?.size) {
+                            const url: URL | typeof webkitURL = window.URL || window.webkitURL;
+                            photoUrl = url.createObjectURL(photo);
+                        }
+    
+                        (await prev).push({
+                            id: item.id,
+                            firstName: item.givenName,
+                            lastName: item.surname,
+                            displayName: item.displayName,
+                            jobTitle: item.jobTitle,
+                            email: item.mail,
+                            businessPhone: item.businessPhones,
+                            mobilePhone: item.mobilePhone,
+                            department: item.department,
+                            upn: item.userPrincipalName,
+                            picture: photoUrl
+                        });
+    
+                        return await prev;
+                    }, Promise.resolve([]));
 
                 const ret: IPerson[] = items.sort((a: IPerson, b: IPerson) => a.lastName.localeCompare(b.lastName));
 
@@ -250,16 +258,20 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
         }
     }
 
-    async function searchLetter(ltr: string, pageSize: number = 12): Promise<{ items: IPerson[], total: number }> {
+    async function searchLetter(ltr: string, pageSize: number = 12, query: string | undefined = ''): Promise<{ items: IPerson[], total: number }> {
         try {
+            let filterQuery: string = `(startsWith(givenname, '${ltr}') or startsWith(surname, '${ltr}') and userType eq 'Member')`
+            if (query !== undefined && query !== '') {
+                filterQuery = filterQuery + 'and' + query;
+            }
             const total: number = await graph.users
-                .filter(`startsWith(givenname, '${ltr}') or startsWith(surname, '${ltr}') and userType ne 'guest'`)
+                .filter(filterQuery)
                 .count
                 ();
 
             const search: IPagedResult = await graph
                 .users
-                .filter(`startsWith(givenname, '${ltr}') or startsWith(surname, '${ltr}')`)
+                .filter(filterQuery)
                 .top(pageSize)
                 .select(
                     'id', 'department', 'displayName', 'givenName', 'surname', 'jobTitle',
@@ -271,20 +283,18 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
             setPage(search);
             setTotal(total);
 
-            const items: IPerson[] = [];
-
-            for (let i: number = 0; i < search.value.length; i++) {
+            const items: IPerson[] = await search.value.reduce(async (prev: Promise<IPerson[]>, curr: IUser) => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const item: any = search.value[i];
-                const photo: Blob = await graph.users.getById(item.id).photo.getBlob().catch(() => null);
+                const item: any = curr;
+                const photo: Blob = await getPhoto(item.id);
                 let photoUrl: string | null;
+
                 if (photo?.size) {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const url: any = window.URL || window.webkitURL;
+                    const url: URL | typeof webkitURL = window.URL || window.webkitURL;
                     photoUrl = url.createObjectURL(photo);
                 }
 
-                items.push({
+                (await prev).push({
                     id: item.id,
                     firstName: item.givenName,
                     lastName: item.surname,
@@ -292,12 +302,14 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
                     jobTitle: item.jobTitle,
                     email: item.mail,
                     businessPhone: item.businessPhones,
-                    department: item.department,
                     mobilePhone: item.mobilePhone,
+                    department: item.department,
                     upn: item.userPrincipalName,
                     picture: photoUrl
                 });
-            }
+
+                return await prev;
+            }, Promise.resolve([]));
 
             const ret: IPerson[] = items.sort((a: IPerson, b: IPerson) => a.lastName.localeCompare(b.lastName));
 
