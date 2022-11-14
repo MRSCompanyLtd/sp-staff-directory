@@ -25,6 +25,20 @@
       "videoUrl": "",
       "categories": []
     },
+    "webApiPermissionRequests": [
+      {
+        "resource": "Microsoft Graph",
+        "scope": "People.Read.All"
+      },
+      {
+        "resource": "Microsoft Graph",
+        "scope": "User.Read.All"
+      },
+      {
+        "resource": "Microsoft Graph",
+        "scope": "Directory.Read.All"
+      }
+    ],
     "features": [
       {
         "title": "sp-staff-directory Feature",
