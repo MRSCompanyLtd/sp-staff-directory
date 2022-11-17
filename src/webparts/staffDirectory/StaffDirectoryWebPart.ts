@@ -146,7 +146,7 @@ export default class StaffDirectoryWebPart extends BaseClientSideWebPart<IStaffD
                   label: 'Append Custom Search Query',
                   calloutContent: [
                     React.createElement('div', {}, [
-                      React.createElement('p', {}, 'Enter a custom query and wrap it in parentheses. Supports all User properties'),
+                      React.createElement('p', {}, 'Enter a custom query here. Supports all User properties.'),
                       React.createElement('a', {
                         href: 'https://learn.microsoft.com/en-us/graph/filter-query-parameter',
                         target: '_blank noreferrer'
