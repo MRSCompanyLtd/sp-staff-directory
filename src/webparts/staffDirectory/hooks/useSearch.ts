@@ -39,7 +39,7 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
             let filterQuery: string = `(personType/class eq 'Person')`
 
             if (query !== undefined && query !== '') {
-                filterQuery = filterQuery + 'and' + query
+                filterQuery = `${filterQuery} and ${query}`;
             }
 
             const res: IPeople[] = await graph.me.people
@@ -148,8 +148,8 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
     async function searchPeople(str: string, pageSize: number = 12, query: string | undefined = ''): Promise<{ items: IPerson[], total: number }> {
         try {
             let filterQuery: string = `(userType eq 'Member')`;
-            if (query !== '' && query !== undefined) {
-                filterQuery = filterQuery + 'and' + query
+            if (query !== undefined && query !== '') {
+                filterQuery = `${filterQuery} and ${query}`;
             }
 
             if (str === '') {
@@ -262,8 +262,9 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
         try {
             let filterQuery: string = `(startsWith(givenname, '${ltr}') or startsWith(surname, '${ltr}') and userType eq 'Member')`
             if (query !== undefined && query !== '') {
-                filterQuery = filterQuery + 'and' + query;
+                filterQuery = `${filterQuery} and ${query}`;
             }
+
             const total: number = await graph.users
                 .filter(filterQuery)
                 .count

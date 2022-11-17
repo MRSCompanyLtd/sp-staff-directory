@@ -161,7 +161,7 @@ export default class StaffDirectoryWebPart extends BaseClientSideWebPart<IStaffD
                   ],
                   calloutTrigger: CalloutTriggers.Click,
                   calloutWidth: 400,
-                  placeholder: `(departmentName eq 'Information Technology')`
+                  value: this.properties.customQuery
                 })
               ]
             }

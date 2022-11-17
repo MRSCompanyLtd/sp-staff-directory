@@ -58,7 +58,7 @@ const StaffDirectory: React.FC<IStaffDirectoryProps> = ({
         setLoading(false);
       });      
     } else {
-      Promise.resolve(getInitialLoad(pageSize).then(() => {
+      Promise.resolve(getInitialLoad(pageSize, customQuery).then(() => {
         setInitial(true);
         setLoading(false);
       })).catch(() => {
@@ -67,7 +67,7 @@ const StaffDirectory: React.FC<IStaffDirectoryProps> = ({
     }
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageSize]);
+  }, [pageSize, customQuery]);
 
   React.useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
