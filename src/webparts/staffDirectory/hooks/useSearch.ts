@@ -2,6 +2,7 @@ import * as React from "react";
 import { WebPartContext } from '@microsoft/sp-webpart-base';
 import { GraphFI, SPFx as grSPFx, graphfi, DefaultHeaders, IPagedResult } from '@pnp/graph';
 import "@pnp/graph/users";
+import "@pnp/graph/groups";
 import "@pnp/graph/photos";
 import "@pnp/graph/search";
 import "@pnp/graph/batching";
@@ -36,7 +37,7 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
                 'scoredEmailAddresses', 'userPrincipalName', 'phones'
             ]
 
-            let filterQuery: string = `(personType/class eq 'Person')`
+            let filterQuery: string = `(personType/class eq 'Person' and surname ne null)`
 
             if (query !== undefined && query !== '') {
                 filterQuery = `${filterQuery} and ${query}`;
@@ -131,7 +132,7 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
             }
 
             const pastResults: IPerson[] = [...results];
-            const newResults: IPerson[] = pastResults.concat(items).sort((a: IPerson, b: IPerson) => a.lastName.localeCompare(b.lastName));
+            const newResults: IPerson[] = pastResults.concat(items).sort((a: IPerson, b: IPerson) => a.lastName ? a.lastName.localeCompare(b.lastName) : 1);
 
             setResults(newResults);
             setPage(newPage);
@@ -147,62 +148,15 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
 
     async function searchPeople(str: string, pageSize: number = 12, query: string | undefined = ''): Promise<{ items: IPerson[], total: number }> {
         try {
-            let filterQuery: string = `(userType eq 'Member')`;
+            let filterQuery: string = `(userType ne 'Guest' and accountEnabled eq true and surname ne null)`;
             if (query !== undefined && query !== '') {
                 filterQuery = `${filterQuery} and ${query}`;
             }
 
             if (str === '') {
-                const total: number = await graph.users.filter(filterQuery).count();
-                const search: IPagedResult = await graph.users
-                    .filter(filterQuery)
-                    .top(pageSize)
-                    .select(
-                        'id', 'department', 'displayName', 'givenName', 'surname', 'jobTitle',
-                        'mail', 'businessPhones', 'mobilePhone', 'userPrincipalName'
-                    )
-                    .paged
-                    ();
+                const items: IPerson[] = await getInitialLoad();
 
-                const all: IUser[] = [];
-
-                all.push(...search.value);
-
-                const items: IPerson[] = await all.reduce(async (prev: Promise<IPerson[]>, curr: IUser) => {
-                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    const item: any = curr;
-                    const photo: Blob = await getPhoto(item.id);
-                    let photoUrl: string | null;
-
-                    if (photo?.size) {
-                        const url: URL | typeof webkitURL = window.URL || window.webkitURL;
-                        photoUrl = url.createObjectURL(photo);
-                    }
-
-                    (await prev).push({
-                        id: item.id,
-                        firstName: item.givenName,
-                        lastName: item.surname,
-                        displayName: item.displayName,
-                        jobTitle: item.jobTitle,
-                        email: item.mail,
-                        businessPhone: item.businessPhones,
-                        mobilePhone: item.mobilePhone,
-                        department: item.department,
-                        upn: item.userPrincipalName,
-                        picture: photoUrl
-                    });
-
-                    return await prev;
-                }, Promise.resolve([]));
-
-                const ret: IPerson[] = items.sort((a: IPerson, b: IPerson) => a.lastName.localeCompare(b.lastName));
-
-                setResults(ret);
-                setTotal(total);
-                setPage(search);
-
-                return { total, items };
+                return { total: pageSize, items };
             } else {
                 const total: number = await graph.users.filter(filterQuery).search(`("displayName:${str}" OR "department:${str}" OR "jobTitle:${str}")`).count();
                 const search: IUser[] = await graph
@@ -225,20 +179,22 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
                             const url: URL | typeof webkitURL = window.URL || window.webkitURL;
                             photoUrl = url.createObjectURL(photo);
                         }
-    
-                        (await prev).push({
-                            id: item.id,
-                            firstName: item.givenName,
-                            lastName: item.surname,
-                            displayName: item.displayName,
-                            jobTitle: item.jobTitle,
-                            email: item.mail,
-                            businessPhone: item.businessPhones,
-                            mobilePhone: item.mobilePhone,
-                            department: item.department,
-                            upn: item.userPrincipalName,
-                            picture: photoUrl
-                        });
+
+                        if (item.surname) {
+                            (await prev).push({
+                                id: item.id,
+                                firstName: item.givenName,
+                                lastName: item.surname,
+                                displayName: item.displayName,
+                                jobTitle: item.jobTitle,
+                                email: item.mail,
+                                businessPhone: item.businessPhones,
+                                mobilePhone: item.mobilePhone,
+                                department: item.department,
+                                upn: item.userPrincipalName,
+                                picture: photoUrl
+                            });                            
+                        }
     
                         return await prev;
                     }, Promise.resolve([]));
@@ -260,7 +216,7 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
 
     async function searchLetter(ltr: string, pageSize: number = 12, query: string | undefined = ''): Promise<{ items: IPerson[], total: number }> {
         try {
-            let filterQuery: string = `(startsWith(givenname, '${ltr}') or startsWith(surname, '${ltr}') and userType eq 'Member')`
+            let filterQuery: string = `(startsWith(givenname, '${ltr}') or (surname ne null and startsWith(surname, '${ltr}')) and userType eq 'Member' and accountEnabled eq true)`
             if (query !== undefined && query !== '') {
                 filterQuery = `${filterQuery} and ${query}`;
             }
@@ -294,20 +250,22 @@ const useSearch = (context: WebPartContext): IUseSearchReturn => {
                     const url: URL | typeof webkitURL = window.URL || window.webkitURL;
                     photoUrl = url.createObjectURL(photo);
                 }
-
-                (await prev).push({
-                    id: item.id,
-                    firstName: item.givenName,
-                    lastName: item.surname,
-                    displayName: item.displayName,
-                    jobTitle: item.jobTitle,
-                    email: item.mail,
-                    businessPhone: item.businessPhones,
-                    mobilePhone: item.mobilePhone,
-                    department: item.department,
-                    upn: item.userPrincipalName,
-                    picture: photoUrl
-                });
+                
+                if (item.surname) {
+                    (await prev).push({
+                        id: item.id,
+                        firstName: item.givenName,
+                        lastName: item.surname,
+                        displayName: item.displayName,
+                        jobTitle: item.jobTitle,
+                        email: item.mail,
+                        businessPhone: item.businessPhones,
+                        mobilePhone: item.mobilePhone,
+                        department: item.department,
+                        upn: item.userPrincipalName,
+                        picture: photoUrl
+                    });
+                }
 
                 return await prev;
             }, Promise.resolve([]));

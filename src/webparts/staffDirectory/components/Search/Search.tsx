@@ -8,7 +8,7 @@ const Search: React.FC<ISearchProps> = ({ onChange, clear, value, submit }) => {
         <div className={styles.search}>
             <SearchBox
                 className={styles.search}
-                placeholder='Search first name, last name, department, and more'
+                placeholder='Search first name, last name, department, or job title'
                 onChange={onChange}
                 onClear={clear}
                 value={value}

@@ -4,8 +4,8 @@ import { IStaffDirectoryProps } from './IStaffDirectoryProps';
 import Letters from './Letters/Letters';
 import Search from './Search/Search';
 import Results from './Results/Results';
-import useSearch from '../hooks/useSearch';
 import { Dropdown, IDropdownOption } from 'office-ui-fabric-react';
+import useGroup from '../hooks/useGroup';
 
 interface IPropertyFieldCollectionDepartments {
   departmentKey: string;
@@ -21,13 +21,13 @@ const StaffDirectory: React.FC<IStaffDirectoryProps> = ({
   showDepartmentFilter,
   context,
   hasTeamsContext,
-  userDisplayName,
   customQuery
 }) => {
   const [loading, setLoading] = React.useState<boolean>(true);
   const [initial, setInitial] = React.useState<boolean>(false);
   const [search, setSearch] = React.useState<string>('');
   const [page, setPage] = React.useState<number>(1);
+  const [letter, setLetter] = React.useState<string | undefined>(undefined);
   const [dropdownOptions, setDropdownOptions] = React.useState<IDropdownOption[]>(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (departments as any[]).reduce((prev: IDropdownOption[], curr: IPropertyFieldCollectionDepartments): IDropdownOption[] => {
@@ -41,13 +41,13 @@ const StaffDirectory: React.FC<IStaffDirectoryProps> = ({
   );
   const [selectedDept, setSelectedDept] = React.useState<string>('');
 
-  const { searchPeople, searchLetter, getNextPage, getInitialLoad, results, total } = useSearch(context);
+  const { searchPeople, getNextPage, getInitialLoad, searchLetter, results, total } = useGroup(context);
 
   const get: () => Promise<void> = React.useCallback(async () => {
     setLoading(true);
     setSearch('');
-    await searchPeople('', pageSize, customQuery);
-  }, [pageSize, searchPeople, customQuery]);
+    await getInitialLoad(pageSize);
+  }, [pageSize, getInitialLoad]);
 
   React.useEffect(() => {
     if (initial) {
@@ -58,7 +58,7 @@ const StaffDirectory: React.FC<IStaffDirectoryProps> = ({
         setLoading(false);
       });      
     } else {
-      Promise.resolve(getInitialLoad(pageSize, customQuery).then(() => {
+      Promise.resolve(getInitialLoad(pageSize).then(() => {
         setInitial(true);
         setLoading(false);
       })).catch(() => {
@@ -84,16 +84,20 @@ const StaffDirectory: React.FC<IStaffDirectoryProps> = ({
   const onLetterClick: (ltr: string) => Promise<void> = React.useCallback(async (ltr: string): Promise<void> => {
     setLoading(true);
 
-    if (ltr === '') {
-      await searchPeople('', pageSize, customQuery);
+    if (ltr === '' || ltr === undefined) {
+      setSelectedDept('');
+      await getInitialLoad(pageSize);
+      setLetter(ltr);
       setPage(1);
     } else {
-      await searchLetter(ltr, pageSize, customQuery);
+      setSelectedDept('');
+      await searchLetter(ltr, pageSize);
+      setLetter(ltr);
       setPage(1);
     }
 
     setLoading(false);
-  }, [searchPeople, searchLetter, pageSize, customQuery]);
+  }, [getInitialLoad, searchLetter, pageSize]);
 
   const handleSearchChange: (event?: React.ChangeEvent<HTMLInputElement>, newValue?: string) => void = React.useCallback((event?: React.ChangeEvent<HTMLInputElement>, newValue?: string): void => {
     setSearch(newValue);
@@ -101,20 +105,26 @@ const StaffDirectory: React.FC<IStaffDirectoryProps> = ({
 
   const handleSearch: (val: string) => Promise<void> = React.useCallback(async (val: string) => {
     setLoading(true);
-    await searchPeople(val, pageSize, customQuery);
-    setPage(1);
+    setLetter(undefined);
     setSelectedDept('');
+    if (val === '' || val === undefined) {
+      await getInitialLoad(pageSize);
+    } else {
+      await searchPeople(val, pageSize);  
+    }
+    setPage(1);
     setLoading(false);
-  }, [searchPeople, pageSize, customQuery]);
+  }, [searchPeople, getInitialLoad, pageSize]);
 
   const clearSearch: () => Promise<void> = React.useCallback(async () => {
     setLoading(true);
-    await searchPeople('', pageSize, customQuery);
-    setSearch('');
+    setLetter(undefined);
     setSelectedDept('');
+    await getInitialLoad(pageSize);
+    setSearch('');
     setPage(1);
     setLoading(false);
-  }, [searchPeople, pageSize, customQuery]);
+  }, [getInitialLoad, pageSize]);
 
   const nextPage: (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => Promise<void> = React.useCallback(async (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
     const newVal: number = Number(e.currentTarget.innerText);
@@ -155,8 +165,8 @@ const StaffDirectory: React.FC<IStaffDirectoryProps> = ({
     const dept: string = option.key.toString();
     setSelectedDept(dept);
     setSearch(dept);
-    await searchPeople(dept, pageSize, customQuery);
-  }, [searchPeople, pageSize, customQuery]);
+    await searchPeople(dept, pageSize);
+  }, [searchPeople, pageSize]);
 
   return (
     <section className={`${styles.staffDirectory} ${hasTeamsContext ? styles.teams : ''}`}>
@@ -167,7 +177,7 @@ const StaffDirectory: React.FC<IStaffDirectoryProps> = ({
       </div>
       }
       <div className={styles.searchArea}>
-        <Letters onLetterClick={onLetterClick} />
+        <Letters letter={letter} onLetterClick={onLetterClick} />
         {showDepartmentFilter &&
           <Dropdown
             options={dropdownOptions}
@@ -178,7 +188,10 @@ const StaffDirectory: React.FC<IStaffDirectoryProps> = ({
         }
         <Search onChange={handleSearchChange} clear={clearSearch} value={search} submit={handleSearch} />        
       </div>
-      <Results people={results.slice((page - 1) * pageSize, page * pageSize)} loading={loading} context={context} />
+      <Results people={
+        results.slice((page - 1) * pageSize, (page * pageSize < total ? page * pageSize : total))
+        } loading={loading} context={context}
+      />
       {pages(page)}
       </div>
     </section>
