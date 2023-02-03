@@ -28,7 +28,7 @@ const Results: React.FC<IResultsProps> = ({ people, loading, context }) => {
                                             size={PersonaSize.size72}
                                             imageUrl={item.picture}
                                             imageAlt={`${item.displayName} profile pic`}
-                                            imageInitials={item.firstName[0] + item.lastName[0]}
+                                            imageInitials={''}
                                             imageShouldFadeIn
                                         />
                                     </>
